@@ -2,68 +2,61 @@ from mininet.net import Mininet
 from mininet.node import Node
 from mininet.cli import CLI
 from mininet.log import setLogLevel
+from mininet.link import TCLink
 
 def create_topology():
-    net = Mininet()
+    net = Mininet(link=TCLink)
 
-    # Criar o backbone principal (roteador principal)
-    backbone_main = net.addHost('bb_main', ip='10.0.0.1/24')
+    # Criando o backbone (1 switch central)
+    backbone = net.addSwitch('backbone')
 
-    # Configurar backbones locais
-    backbones = []
-    for i in range(1, 5):
-        backbone = net.addHost(f'bb_local{i}', ip=f'10.0.{i}.1/24')
-        backbones.append(backbone)
-        net.addLink(backbone_main, backbone)
+    # Criando 4 switches, cada um conectado ao backbone
+    switches = [net.addSwitch(f's{i+1}') for i in range(4)]
 
-    # Configurar roteadores e hosts
-    for i, backbone in enumerate(backbones, start=1):
-        for j in range(1, 3):  # Dois roteadores por backbone
-            router = net.addHost(f'r{i}{j}', ip=f'10.{i}.{j}.1/24')
-            net.addLink(backbone, router)
+    # Criando 8 roteadores, 2 para cada switch
+    routers = [net.addHost(f'r{i+1}', ip=f'10.0.{i+1}.1/24') for i in range(8)]
 
-            # Conectar 5 máquinas a cada roteador
-            for k in range(1, 6):
-                host = net.addHost(f'h{i}{j}{k}', ip=f'10.{i}.{j}.{k+1}/24', defaultRoute=f'via 10.{i}.{j}.1')
-                net.addLink(router, host)
+    # Criando 40 máquinas, 5 para cada roteador
+    hosts = []
+    for i in range(8):
+        for j in range(5):
+            hosts.append(net.addHost(f'h{i*5 + j + 1}', ip=f'10.0.{i+1}.{j+2}/24', defaultRoute=f'via 10.0.{i+1}.1'))
 
-    # Iniciar a rede
+    # Conectando o backbone aos switches
+    for switch in switches:
+        net.addLink(backbone, switch)
+
+    # Conectando switches aos roteadores
+    for i in range(4):
+        net.addLink(switches[i], routers[i*2])  # Conecta switch i ao roteador 2*i
+        net.addLink(switches[i], routers[i*2 + 1])  # Conecta switch i ao roteador 2*i+1
+
+    # Conectando roteadores aos hosts
+    host_idx = 0
+    for i in range(8):
+        for j in range(5):
+            net.addLink(routers[i], hosts[host_idx])
+            host_idx += 1
+
+    # Iniciando a rede
     net.start()
 
-    # Configurar roteadores para usar FRR com BGP
-    configure_bgp(net)
+    # Configurando os roteadores para usar o BGP
+    for router in routers:
+        router.cmd('sysctl -w net.ipv4.ip_forward=1')
+        router.cmd('/usr/lib/frr/zebra -d')
+        router.cmd('/usr/lib/frr/bgpd -d')  # Ativando o BGP
 
-    # Abrir CLI para interagir
+    # Configuração do BGP
+    for i in range(8):
+        router = routers[i]
+        router.cmd(f"vtysh -c 'conf t' -c 'router bgp 650{i+1}' -c 'network 10.0.{i+1}.0/24'")
+
+    # Interagir com a rede via CLI
     CLI(net)
 
-    # Finalizar a rede ao sair
+    # Parar a rede ao sair
     net.stop()
-
-def configure_bgp(net):
-    """
-    Configura o BGP em todos os roteadores e backbones.
-    """
-    as_number = 100  # Número base para os sistemas autônomos
-    for node in net.hosts:
-        # Habilitar o encaminhamento de pacotes
-        node.cmd('sysctl -w net.ipv4.ip_forward=1')
-
-        # Configurar FRRouting nos roteadores
-        if 'r' in node.name or 'bb' in node.name:  # Apenas roteadores e backbones
-            as_num = as_number + int(node.name[-1])  # AS único para cada nó
-            bgp_config = f"""
-router bgp {as_num}
- bgp router-id {node.IP()}
- network {node.IP()}/24
- neighbor 10.0.0.1 remote-as {as_number}  # Conexão ao backbone principal
-"""
-            # Criar arquivos de configuração
-            with open(f'/tmp/{node.name}_bgpd.conf', 'w') as f:
-                f.write(bgp_config)
-
-            # Iniciar os daemons do FRR
-            node.cmd(f'/usr/lib/frr/zebra -f /tmp/{node.name}_bgpd.conf -d')
-            node.cmd(f'/usr/lib/frr/bgpd -f /tmp/{node.name}_bgpd.conf -d')
 
 if __name__ == '__main__':
     setLogLevel('info')
