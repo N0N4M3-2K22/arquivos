@@ -3,6 +3,7 @@ from mininet.node import Node, OVSBridge
 from mininet.topo import Topo
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
+import os
 
 class CustomTopo(Topo):
     def build(self):
@@ -43,7 +44,6 @@ def configure_routes(net):
 
 def cleanup():
     # Remove todas as interfaces existentes
-    import os
     os.system('mn -c')
 
 def run():
