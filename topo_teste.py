@@ -117,6 +117,12 @@ class TopologiaManual(Topo):
         self.addLink(s8, h31)
         self.addLink(s8, h32)
 
+        # Conectando o backbone aos roteadores
+        self.addLink(backbone, r1)
+        self.addLink(backbone, r2)
+        self.addLink(backbone, r3)
+        self.addLink(backbone, r4)
+
 def main():
     topo = TopologiaManual()
     net = Mininet(topo=topo, controller=Controller, switch=OVSSwitch)
