@@ -41,7 +41,13 @@ def configure_routes(net):
                 host = net.get(f'h{i}{j}{k}')
                 host.cmd(f'ip route add default via 10.{i}.{j}.254')
 
+def cleanup():
+    # Remove todas as interfaces existentes
+    import os
+    os.system('mn -c')
+
 def run():
+    cleanup()  # Limpa as interfaces antes de criar a topologia
     topo = CustomTopo()
     net = Mininet(topo=topo, switch=OVSBridge, controller=None, build=False)
     net.build()
