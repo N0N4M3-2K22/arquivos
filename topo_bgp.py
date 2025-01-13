@@ -4,7 +4,7 @@ from mininet.topo import Topo
 from mininet.cli import CLI
 from mininet.util import dumpNodeConnections
 
-class TopologiaBGP(Topo):
+class TopologiaManual(Topo):
     def build(self):
         # Criando o backbone (roteador central)
         backbone = self.addHost('backbone', ip='10.0.1.1/24')
@@ -117,7 +117,13 @@ class TopologiaBGP(Topo):
         self.addLink(s8, h31)
         self.addLink(s8, h32)
 
-def configurar_bgp(net):
+        # Conectando os roteadores ao backbone
+        self.addLink(r1, backbone)
+        self.addLink(r2, backbone)
+        self.addLink(r3, backbone)
+        self.addLink(r4, backbone)
+
+def configurar_rotas_manualmente(net):
     # Obtendo os roteadores
     backbone = net.get('backbone')
     r1 = net.get('r1')
@@ -125,33 +131,36 @@ def configurar_bgp(net):
     r3 = net.get('r3')
     r4 = net.get('r4')
 
-    # Configurando o BGP nos roteadores (FRR)
-    # Aqui, estamos configurando BGP manualmente, para simular a troca de rotas
-    # Exemplo de configuração BGP para r1
+    # Configurando o roteamento manualmente nos roteadores
     r1.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r1.cmd('vtysh -c "conf t" -c "router bgp 65001" -c "network 10.0.1.0/24" -c "neighbor 10.0.2.254 remote-as 65002"')
+    r1.cmd('ip route add 10.0.2.0/24 via 10.0.1.1')
+    r1.cmd('ip route add 10.0.3.0/24 via 10.0.1.1')
+    r1.cmd('ip route add 10.0.4.0/24 via 10.0.1.1')
 
-    # Exemplo de configuração BGP para r2
     r2.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r2.cmd('vtysh -c "conf t" -c "router bgp 65002" -c "network 10.0.2.0/24" -c "neighbor 10.0.1.254 remote-as 65001"')
+    r2.cmd('ip route add 10.0.1.0/24 via 10.0.1.1')
+    r2.cmd('ip route add 10.0.3.0/24 via 10.0.1.1')
+    r2.cmd('ip route add 10.0.4.0/24 via 10.0.1.1')
 
-    # Exemplo de configuração BGP para r3
     r3.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r3.cmd('vtysh -c "conf t" -c "router bgp 65003" -c "network 10.0.3.0/24" -c "neighbor 10.0.4.254 remote-as 65004"')
+    r3.cmd('ip route add 10.0.1.0/24 via 10.0.1.1')
+    r3.cmd('ip route add 10.0.2.0/24 via 10.0.1.1')
+    r3.cmd('ip route add 10.0.4.0/24 via 10.0.1.1')
 
-    # Exemplo de configuração BGP para r4
     r4.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r4.cmd('vtysh -c "conf t" -c "router bgp 65004" -c "network 10.0.4.0/24" -c "neighbor 10.0.3.254 remote-as 65003"')
+    r4.cmd('ip route add 10.0.1.0/24 via 10.0.1.1')
+    r4.cmd('ip route add 10.0.2.0/24 via 10.0.1.1')
+    r4.cmd('ip route add 10.0.3.0/24 via 10.0.1.1')
 
 def main():
-    topo = TopologiaBGP()
+    topo = TopologiaManual()
     net = Mininet(topo=topo, controller=Controller, switch=OVSSwitch)
 
     # Iniciando a rede
     net.start()
 
-    # Configurando o BGP nos roteadores
-    configurar_bgp(net)
+    # Configurando as rotas manualmente nos roteadores
+    configurar_rotas_manualmente(net)
 
     # Rodando o CLI para interação
     CLI(net)
