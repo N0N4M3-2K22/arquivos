@@ -1,68 +1,59 @@
 from mininet.net import Mininet
-from mininet.node import Node
+from mininet.node import Node, OVSSwitch
+from mininet.topo import Topo
 from mininet.cli import CLI
-from mininet.log import setLogLevel
-from mininet.link import TCLink
+from mininet.log import setLogLevel, info
 
-def create_topology():
-    net = Mininet(link=TCLink)
+class CustomTopo(Topo):
+    def build(self):
+        # Adiciona o backbone switch
+        backbone = self.addSwitch('s0', dpid="0000000000000001")
 
-    # Criando o backbone (1 switch central)
-    backbone = net.addSwitch('backbone', dpid='00:00:00:00:00:01')
+        for i in range(1, 5):
+            # Adiciona os switches de bloco
+            block_switch = self.addSwitch(f's{i}', dpid=f"000000000000000{i+1}")
 
-    # Criando 4 switches, cada um com um DPID único
-    switches = [
-        net.addSwitch('s1', dpid='00:00:00:00:00:02'),
-        net.addSwitch('s2', dpid='00:00:00:00:00:03'),
-        net.addSwitch('s3', dpid='00:00:00:00:00:04'),
-        net.addSwitch('s4', dpid='00:00:00:00:00:05')
-    ]
+            for j in range(1, 3):
+                # Adiciona os roteadores
+                router = self.addHost(f'r{i}{j}', cls=Node, ip=None)
 
-    # Criando 8 roteadores, 2 para cada switch
-    routers = [net.addHost(f'r{i+1}', ip=f'10.0.{i+1}.1/24') for i in range(8)]
+                # Adiciona os hosts
+                for k in range(1, 5):
+                    host = self.addHost(f'h{i}{j}{k}', ip=f'10.{i}.{j}.{k}/24')
+                    self.addLink(host, router)
 
-    # Criando 40 máquinas, 5 para cada roteador
-    hosts = []
-    for i in range(8):
-        for j in range(5):
-            hosts.append(net.addHost(f'h{i*5 + j + 1}', ip=f'10.0.{i+1}.{j+2}/24', defaultRoute=f'via 10.0.{i+1}.1'))
+                self.addLink(router, block_switch)
+            self.addLink(block_switch, backbone)
 
-    # Conectando o backbone aos switches
-    for switch in switches:
-        net.addLink(backbone, switch)
+def setup_FRR(net):
+    routers = [net.get(f'r{i}{j}') for i in range(1, 5) for j in range(1, 3)]
+    for router in routers:
+        router.cmd("sysctl -w net.ipv4.ip_forward=1")
+        router.cmd("service frr start")
+        router.cmd(f"vtysh -c 'conf t' -c 'router bgp {router.name[1:]}' -c 'neighbor 10.0.0.0/8 remote-as 65000' -c 'network 10.0.0.0/8'")
 
-    # Conectando switches aos roteadores
-    for i in range(4):
-        net.addLink(switches[i], routers[i*2])  # Conecta switch i ao roteador 2*i
-        net.addLink(switches[i], routers[i*2 + 1])  # Conecta switch i ao roteador 2*i+1
+def configure_routes(net):
+    # Configura as rotas nos hosts para alcançar os outros blocos
+    for i in range(1, 5):
+        for j in range(1, 3):
+            router = net.get(f'r{i}{j}')
+            for k in range(1, 5):
+                host = net.get(f'h{i}{j}{k}')
+                host.cmd(f'ip route add default via 10.{i}.{j}.254')
 
-    # Conectando roteadores aos hosts
-    host_idx = 0
-    for i in range(8):
-        for j in range(5):
-            net.addLink(routers[i], hosts[host_idx])
-            host_idx += 1
-
-    # Iniciando a rede
+def run():
+    topo = CustomTopo()
+    net = Mininet(topo=topo, switch=OVSSwitch, controller=None, build=False)
+    net.build()
     net.start()
 
-    # Configurando os roteadores para usar o BGP
-    for router in routers:
-        router.cmd('sysctl -w net.ipv4.ip_forward=1')
-        router.cmd('/usr/lib/frr/zebra -d')
-        router.cmd('/usr/lib/frr/bgpd -d')  # Ativando o BGP
+    # Configurar FRRouting e rotas
+    setup_FRR(net)
+    configure_routes(net)
 
-    # Configuração do BGP
-    for i in range(8):
-        router = routers[i]
-        router.cmd(f"vtysh -c 'conf t' -c 'router bgp 650{i+1}' -c 'network 10.0.{i+1}.0/24'")
-
-    # Interagir com a rede via CLI
     CLI(net)
-
-    # Parar a rede ao sair
     net.stop()
 
 if __name__ == '__main__':
     setLogLevel('info')
-    create_topology()
+    run()
