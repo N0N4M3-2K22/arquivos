@@ -7,7 +7,7 @@ from mininet.util import dumpNodeConnections
 class TopologiaManual(Topo):
     def build(self):
         # Criando o backbone (roteador central)
-        backbone = self.addHost('backbone', ip='10.0.1.1/24')
+        backbone = self.addHost('backbone', ip='10.0.0.1/24')
 
         # Criando os roteadores (4 roteadores)
         r1 = self.addHost('r1', ip='10.0.1.254/24')
@@ -133,25 +133,25 @@ def configurar_rotas_manualmente(net):
 
     # Configurando o roteamento manualmente nos roteadores
     r1.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r1.cmd('ip route add 10.0.2.0/24 via 10.0.1.1')
-    r1.cmd('ip route add 10.0.3.0/24 via 10.0.1.1')
-    r1.cmd('ip route add 10.0.4.0/24 via 10.0.1.1')
+    r1.cmd('ip route add 10.0.2.0/24 via 10.0.0.1')
+    r1.cmd('ip route add 10.0.3.0/24 via 10.0.0.1')
+    r1.cmd('ip route add 10.0.4.0/24 via 10.0.0.1')
 
     r2.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r2.cmd('ip route add 10.0.1.0/24 via 10.0.1.1')
-    r2.cmd('ip route add 10.0.3.0/24 via 10.0.1.1')
-    r2.cmd('ip route add 10.0.4.0/24 via 10.0.1.1')
+    r2.cmd('ip route add 10.0.1.0/24 via 10.0.0.1')
+    r2.cmd('ip route add 10.0.3.0/24 via 10.0.0.1')
+    r2.cmd('ip route add 10.0.4.0/24 via 10.0.0.1')
 
     r3.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r3.cmd('ip route add 10.0.1.0/24 via 10.0.1.1')
-    r3.cmd('ip route add 10.0.2.0/24 via 10.0.1.1')
-    r3.cmd('ip route add 10.0.4.0/24 via 10.0.1.1')
+    r3.cmd('ip route add 10.0.1.0/24 via 10.0.0.1')
+    r3.cmd('ip route add 10.0.2.0/24 via 10.0.0.1')
+    r3.cmd('ip route add 10.0.4.0/24 via 10.0.0.1')
 
     r4.cmd('sysctl -w net.ipv4.ip_forward=1')
-    r4.cmd('ip route add 10.0.1.0/24 via 10.0.1.1')
-    r4.cmd('ip route add 10.0.2.0/24 via 10.0.1.1')
-    r4.cmd('ip route add 10.0.3.0/24 via 10.0.1.1')
-
+    r4.cmd('ip route add 10.0.1.0/24 via 10.0.0.1')
+    r4.cmd('ip route add 10.0.2.0/24 via 10.0.0.1')
+    r4.cmd('ip route add 10.0.3.0/24 via 10.0.0.1')
+    
 def main():
     topo = TopologiaManual()
     net = Mininet(topo=topo, controller=Controller, switch=OVSSwitch)
