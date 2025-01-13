@@ -8,10 +8,15 @@ def create_topology():
     net = Mininet(link=TCLink)
 
     # Criando o backbone (1 switch central)
-    backbone = net.addSwitch('backbone')
+    backbone = net.addSwitch('backbone', dpid='00:00:00:00:00:01')
 
-    # Criando 4 switches, cada um conectado ao backbone
-    switches = [net.addSwitch(f's{i+1}') for i in range(4)]
+    # Criando 4 switches, cada um com um DPID único
+    switches = [
+        net.addSwitch('s1', dpid='00:00:00:00:00:02'),
+        net.addSwitch('s2', dpid='00:00:00:00:00:03'),
+        net.addSwitch('s3', dpid='00:00:00:00:00:04'),
+        net.addSwitch('s4', dpid='00:00:00:00:00:05')
+    ]
 
     # Criando 8 roteadores, 2 para cada switch
     routers = [net.addHost(f'r{i+1}', ip=f'10.0.{i+1}.1/24') for i in range(8)]
