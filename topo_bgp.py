@@ -1,65 +1,64 @@
 from mininet.net import Mininet
-from mininet.node import Node, OVSBridge
+from mininet.node import Controller, OVSSwitch, Ryu
 from mininet.topo import Topo
 from mininet.cli import CLI
-from mininet.log import setLogLevel, info
-import os
+from mininet.util import dumpNodeConnections
 
-class CustomTopo(Topo):
+class TopologiaBGP(Topo):
     def build(self):
-        # Adiciona o backbone switch
-        backbone = self.addSwitch('s0', dpid="0000000000000001")
+        # Criando o switch
+        switch = self.addSwitch('s1')
 
-        for i in range(1, 5):
-            # Adiciona os switches de bloco
-            block_switch = self.addSwitch(f's{i}', dpid=f"000000000000000{i+1}")
+        # Criando 5 hosts
+        h1 = self.addHost('h1', ip='10.0.1.1/24')
+        h2 = self.addHost('h2', ip='10.0.1.2/24')
+        h3 = self.addHost('h3', ip='10.0.1.3/24')
+        h4 = self.addHost('h4', ip='10.0.1.4/24')
+        h5 = self.addHost('h5', ip='10.0.1.5/24')
 
-            for j in range(1, 3):
-                # Adiciona os roteadores
-                router = self.addHost(f'r{i}{j}', cls=Node, ip=None)
+        # Criando roteadores (que irão rodar o BGP)
+        r1 = self.addHost('r1', ip='10.0.1.254/24')
+        r2 = self.addHost('r2', ip='10.0.2.254/24')
 
-                # Adiciona os hosts
-                for k in range(1, 5):
-                    host = self.addHost(f'h{i}{j}{k}', ip=f'10.{i}.{j}.{k}/24')
-                    self.addLink(host, router)
+        # Conectando os hosts e roteadores ao switch
+        self.addLink(switch, h1)
+        self.addLink(switch, h2)
+        self.addLink(switch, h3)
+        self.addLink(switch, h4)
+        self.addLink(switch, h5)
+        self.addLink(switch, r1)
+        self.addLink(switch, r2)
 
-                self.addLink(router, block_switch)
-            self.addLink(block_switch, backbone)
+def configurar_bgp(net):
+    # Obtendo os roteadores
+    r1 = net.get('r1')
+    r2 = net.get('r2')
 
-def setup_FRR(net):
-    routers = [net.get(f'r{i}{j}') for i in range(1, 5) for j in range(1, 3)]
-    for router in routers:
-        router.cmd("sysctl -w net.ipv4.ip_forward=1")
-        router.cmd("service frr start")
-        router.cmd(f"vtysh -c 'conf t' -c 'router bgp {router.name[1:]}' -c 'neighbor 10.0.0.0/8 remote-as 65000' -c 'network 10.0.0.0/8'")
+    # Configurando o BGP nos roteadores (FRR)
+    # Aqui, estamos configurando BGP manualmente, para simular a troca de rotas
+    # Exemplo de configuração BGP para r1
+    r1.cmd('sysctl -w net.ipv4.ip_forward=1')
+    r1.cmd('vtysh -c "conf t" -c "router bgp 65001" -c "network 10.0.1.0/24" -c "neighbor 10.0.2.254 remote-as 65002"')
 
-def configure_routes(net):
-    # Configura as rotas nos hosts para alcançar os outros blocos
-    for i in range(1, 5):
-        for j in range(1, 3):
-            router = net.get(f'r{i}{j}')
-            for k in range(1, 5):
-                host = net.get(f'h{i}{j}{k}')
-                host.cmd(f'ip route add default via 10.{i}.{j}.254')
+    # Exemplo de configuração BGP para r2
+    r2.cmd('sysctl -w net.ipv4.ip_forward=1')
+    r2.cmd('vtysh -c "conf t" -c "router bgp 65002" -c "network 10.0.2.0/24" -c "neighbor 10.0.1.254 remote-as 65001"')
 
-def cleanup():
-    # Remove todas as interfaces existentes
-    os.system('mn -c')
+def main():
+    topo = TopologiaBGP()
+    net = Mininet(topo=topo, controller=Controller, switch=OVSSwitch)
 
-def run():
-    cleanup()  # Limpa as interfaces antes de criar a topologia
-    topo = CustomTopo()
-    net = Mininet(topo=topo, switch=OVSBridge, controller=None, build=False)
-    net.build()
+    # Iniciando a rede
     net.start()
 
-    # Configurar FRRouting e rotas
-    setup_FRR(net)
-    configure_routes(net)
+    # Configurando o BGP nos roteadores
+    configurar_bgp(net)
 
+    # Rodando o CLI para interação
     CLI(net)
+
+    # Parando a rede
     net.stop()
 
 if __name__ == '__main__':
-    setLogLevel('info')
-    run()
+    main()
