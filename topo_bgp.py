@@ -1,38 +1,109 @@
 from mininet.net import Mininet
-from mininet.node import Controller, OVSSwitch, Ryu
+from mininet.node import Controller, OVSSwitch
 from mininet.topo import Topo
 from mininet.cli import CLI
 from mininet.util import dumpNodeConnections
 
 class TopologiaBGP(Topo):
     def build(self):
-        # Criando o switch
-        switch = self.addSwitch('s1')
+        # Criando o backbone (roteador central)
+        backbone = self.addHost('backbone', ip='10.0.1.1/24')
 
-        # Criando 5 hosts
-        h1 = self.addHost('h1', ip='10.0.1.1/24')
-        h2 = self.addHost('h2', ip='10.0.1.2/24')
-        h3 = self.addHost('h3', ip='10.0.1.3/24')
-        h4 = self.addHost('h4', ip='10.0.1.4/24')
-        h5 = self.addHost('h5', ip='10.0.1.5/24')
-
-        # Criando roteadores (que irão rodar o BGP)
+        # Criando os roteadores (4 roteadores)
         r1 = self.addHost('r1', ip='10.0.1.254/24')
         r2 = self.addHost('r2', ip='10.0.2.254/24')
+        r3 = self.addHost('r3', ip='10.0.3.254/24')
+        r4 = self.addHost('r4', ip='10.0.4.254/24')
 
-        # Conectando os hosts e roteadores ao switch
-        self.addLink(switch, h1)
-        self.addLink(switch, h2)
-        self.addLink(switch, h3)
-        self.addLink(switch, h4)
-        self.addLink(switch, h5)
-        self.addLink(switch, r1)
-        self.addLink(switch, r2)
+        # Criando switches (2 switches por roteador, total de 8 switches)
+        s1 = self.addSwitch('s1')
+        s2 = self.addSwitch('s2')
+        s3 = self.addSwitch('s3')
+        s4 = self.addSwitch('s4')
+        s5 = self.addSwitch('s5')
+        s6 = self.addSwitch('s6')
+        s7 = self.addSwitch('s7')
+        s8 = self.addSwitch('s8')
+
+        # Criando hosts (4 hosts por switch, total de 32 hosts)
+        h1 = self.addHost('h1', ip='10.0.1.10/24')
+        h2 = self.addHost('h2', ip='10.0.1.11/24')
+        h3 = self.addHost('h3', ip='10.0.1.12/24')
+        h4 = self.addHost('h4', ip='10.0.1.13/24')
+
+        h5 = self.addHost('h5', ip='10.0.2.10/24')
+        h6 = self.addHost('h6', ip='10.0.2.11/24')
+        h7 = self.addHost('h7', ip='10.0.2.12/24')
+        h8 = self.addHost('h8', ip='10.0.2.13/24')
+
+        h9 = self.addHost('h9', ip='10.0.3.10/24')
+        h10 = self.addHost('h10', ip='10.0.3.11/24')
+        h11 = self.addHost('h11', ip='10.0.3.12/24')
+        h12 = self.addHost('h12', ip='10.0.3.13/24')
+
+        h13 = self.addHost('h13', ip='10.0.4.10/24')
+        h14 = self.addHost('h14', ip='10.0.4.11/24')
+        h15 = self.addHost('h15', ip='10.0.4.12/24')
+        h16 = self.addHost('h16', ip='10.0.4.13/24')
+
+        # Conectando os switches aos roteadores
+        self.addLink(r1, s1)
+        self.addLink(r1, s2)
+        self.addLink(r2, s3)
+        self.addLink(r2, s4)
+        self.addLink(r3, s5)
+        self.addLink(r3, s6)
+        self.addLink(r4, s7)
+        self.addLink(r4, s8)
+
+        # Conectando os switches aos hosts
+        self.addLink(s1, h1)
+        self.addLink(s1, h2)
+        self.addLink(s1, h3)
+        self.addLink(s1, h4)
+
+        self.addLink(s2, h1)
+        self.addLink(s2, h2)
+        self.addLink(s2, h3)
+        self.addLink(s2, h4)
+
+        self.addLink(s3, h5)
+        self.addLink(s3, h6)
+        self.addLink(s3, h7)
+        self.addLink(s3, h8)
+
+        self.addLink(s4, h5)
+        self.addLink(s4, h6)
+        self.addLink(s4, h7)
+        self.addLink(s4, h8)
+
+        self.addLink(s5, h9)
+        self.addLink(s5, h10)
+        self.addLink(s5, h11)
+        self.addLink(s5, h12)
+
+        self.addLink(s6, h9)
+        self.addLink(s6, h10)
+        self.addLink(s6, h11)
+        self.addLink(s6, h12)
+
+        self.addLink(s7, h13)
+        self.addLink(s7, h14)
+        self.addLink(s7, h15)
+        self.addLink(s7, h16)
+
+        self.addLink(s8, h13)
+        self.addLink(s8, h14)
+        self.addLink(s8, h15)
+        self.addLink(s8, h16)
 
 def configurar_bgp(net):
     # Obtendo os roteadores
+    backbone = net.get('backbone')
     r1 = net.get('r1')
     r2 = net.get('r2')
+    r3 = net.get('r3')
+    r4 = net.get('r4')
 
     # Configurando o BGP nos roteadores (FRR)
     # Aqui, estamos configurando BGP manualmente, para simular a troca de rotas
@@ -43,6 +114,14 @@ def configurar_bgp(net):
     # Exemplo de configuração BGP para r2
     r2.cmd('sysctl -w net.ipv4.ip_forward=1')
     r2.cmd('vtysh -c "conf t" -c "router bgp 65002" -c "network 10.0.2.0/24" -c "neighbor 10.0.1.254 remote-as 65001"')
+
+    # Exemplo de configuração BGP para r3
+    r3.cmd('sysctl -w net.ipv4.ip_forward=1')
+    r3.cmd('vtysh -c "conf t" -c "router bgp 65003" -c "network 10.0.3.0/24" -c "neighbor 10.0.4.254 remote-as 65004"')
+
+    # Exemplo de configuração BGP para r4
+    r4.cmd('sysctl -w net.ipv4.ip_forward=1')
+    r4.cmd('vtysh -c "conf t" -c "router bgp 65004" -c "network 10.0.4.0/24" -c "neighbor 10.0.3.254 remote-as 65003"')
 
 def main():
     topo = TopologiaBGP()
