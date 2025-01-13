@@ -1,5 +1,5 @@
 from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch
+from mininet.node import Node, OVSBridge
 from mininet.topo import Topo
 from mininet.cli import CLI
 from mininet.log import setLogLevel, info
@@ -43,7 +43,7 @@ def configure_routes(net):
 
 def run():
     topo = CustomTopo()
-    net = Mininet(topo=topo, switch=OVSSwitch, controller=None, build=False)
+    net = Mininet(topo=topo, switch=OVSBridge, controller=None, build=False)
     net.build()
     net.start()
 
